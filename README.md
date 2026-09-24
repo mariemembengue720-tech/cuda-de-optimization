@@ -6,27 +6,7 @@
 ---
 
 ## 1. Où on en est dans le projet
-
-```
-PSO fourni                                    ← fait (analysé)
-   ↓
-analyse du code (kernel.cu, architecture mémoire/threads)
-   ↓
-tableau de transformation PSO → DE            ← fait
-   ↓
-DE fonctionnel proche du PSO (CPU séquentiel) ← CE DOCUMENT
-   ↓
-validation CPU/GPU
-   ↓
-architecture inspirée de cudaDEᵢ (ImprovedDE.pdf)
-   ↓
-optimisations CUDA
-   ↓
-expériences (10 runs, moyenne/écart-type)
-   ↓
-comparaison avec DE séquentiel et l'article
-```
-
+--- 
 Ce prototype ne touche **pas encore au GPU**. L'objectif est de valider la logique algorithmique (mutation, crossover, sélection) sur CPU — plus simple à déboguer — avant d'introduire la complexité CUDA (indices de threads, mémoire globale/partagée, races).
 
 ---
