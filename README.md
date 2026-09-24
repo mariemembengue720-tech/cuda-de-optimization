@@ -183,8 +183,5 @@ Le comptage de FEs a aussi été vérifié : pour un budget non multiple de la p
 ## 8. Limites de ce prototype et prochaine étape
 
 - **Aucun calcul GPU.** `run_de_sequential` tourne entièrement sur un seul thread CPU — normal à ce stade, l'objectif était de valider l'algorithme avant la complexité CUDA.
-- **Une seule graine par configuration.** Le sujet demande 10 runs pour calculer moyenne/écart-type (§14) — pas encore fait, prévu en Phase 13 une fois l'architecture GPU validée.
-- **`F` et `CR` fixés** à 0.5 / 0.3 comme demandé, non exposés en CLI (aucune expérience du sujet ne les fait varier pour l'instant).
-- **Bug Griewank non corrigé** (§5) — en attente de validation.
 
 **Prochaine étape (Phase 6)** : adapter `kernel.cu` pour porter `run_de_sequential` sur GPU, en s'inspirant d'abord de l'architecture *basique* de la Figure 1 de *ImprovedDE.pdf* (kernels I/E/P/M/C/R) avant d'envisager l'architecture améliorée `cudaDEᵢ` (kernel IE/P/MCER, Figure 2) une fois la version basique validée.
