@@ -100,7 +100,7 @@ Principe suivi partout : **ne rien casser du PSO fourni**, ajouter le DE à côt
 - N'appelle plus `cuda_pso` — c'est maintenant le point d'entrée du DE séquentiel.
 
 ### `kernel.cu`
-- **Aucune modification.** Le PSO GPU fourni reste intact, prêt pour la Phase 6 où on adaptera sa logique. Il est toujours compilé (avec `nvcc`, pour garder les 4 fichiers cohérents) mais n'est appelé par aucun chemin de ce prototype.
+- **Aucune modification.** Le PSO GPU fourni reste intact, prêt pour la Phase du Cuda_DE  où on adaptera sa logique. Il est toujours compilé (avec `nvcc`, pour garder les 4 fichiers cohérents) mais n'est appelé par aucun chemin de ce prototype.
 
 ---
 
