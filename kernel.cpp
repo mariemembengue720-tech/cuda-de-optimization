@@ -101,7 +101,6 @@ float getRandomClamped() {
 // Population représentée en tableau 1D plat (individu i, dimension j)
 // => index i*dim + j. Même convention mémoire que positions/velocities/
 // pBests dans le PSO fourni, pour rester portable vers une version
-// CUDA (Phase 6) sans changer la représentation mémoire.
 
 static void de_init_population(std::vector<float>& X, int dim, int pop) {
     for (int idx = 0; idx < pop * dim; idx++) {
@@ -110,7 +109,7 @@ static void de_init_population(std::vector<float>& X, int dim, int pop) {
 }
 
 // Tire r1, r2, r3 mutuellement distincts et différents de i — contrainte
-// DE/rand/1 rappelée dans le sujet (§4, §11). Nécessite pop >= 4.
+// DE/rand/1 rappelée dans le sujet  Nécessite pop >= 4.
 static void de_select_r1r2r3(int i, int pop, int &r1, int &r2, int &r3) {
     do { r1 = rand() % pop; } while (r1 == i);
     do { r2 = rand() % pop; } while (r2 == i || r2 == r1);
