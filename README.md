@@ -124,26 +124,7 @@ Principe suivi partout : **ne rien casser du PSO fourni**, ajouter le DE à côt
 
 ---
 
-## 5. Bug hérité — connu, non corrigé pour l'instant
-
-Sur la fonction **Griewank** (objectif = 3), présente dans le code fourni :
-
-```cpp
-float produit = 0;              // devrait être 1 (accumulateur de produit)
-...
-produit *= cos(zi/pow(i+1, 0.5));
-```
-
-`produit` est initialisé à `0` au lieu de `1`. Comme `0 × n'importe quoi = 0`, le terme cosinus de Griewank est neutralisé en permanence, quelle que soit la position testée.
-
-- **Comportement actuel du code** (PSO *et* DE, puisque le calcul est partagé) : Griewank se comporte comme `Σ(zᵢ²/4000) + 1 − 180`, sans terme cosinus — le minimum observé est donc `-179` au lieu de `-180`.
-- **Correction proposée** (à valider par le chef de projet avant application) : `float produit = 1;`.
-
-Ce bug est présent dans le fichier fourni à l'origine, pas introduit par ce prototype — il a été reproduit à l'identique dans `de_fitness_function` par souci de ne pas modifier un benchmark sans validation explicite.
-
----
-
-## 6. Compiler et lancer
+## 5. Compiler et lancer
 
 ### En local (CPU uniquement, pas besoin de GPU ni de `nvcc`)
 
@@ -172,7 +153,7 @@ Voir `CudaDE_Colab.ipynb` — upload des 4 fichiers, compilation `nvcc`, exécut
 | Rosenbrock (2) | 10 | 50 | 393.207336 | 390 |  proche |
 | Rosenbrock (2) | 50 | 100 | 430.898834 | 390 |  plus loin (dimension plus dure) |
 | Rosenbrock (2) | 100 | 500 | 390.390259 | 390 |  population plus grande compense la dimension |
-| Griewank (3) | 10 | 50 | -179.000000 | -180 (bug connu, voir §5) |  décalage attendu de +1 |
+| Griewank (3) | 10 | 50 | -179.000000 | -180 |  décalage attendu de +1 |
 
 Le comptage de FEs a aussi été vérifié : pour un budget non multiple de la population (ex. `D=10, NP=33`, budget théorique 100 000), l'exécution s'arrête à `FEs=99990` — juste avant de dépasser le budget, comme attendu d'une boucle par génération complète.
 
