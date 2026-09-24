@@ -1,6 +1,6 @@
 # Massively Parallel PSO and DE Algorithms — Étape 1 : du PSO au DE séquentiel
 
-**Rôle** : Étudiant 1 — Chef de projet & Développeur GPU / C++ (cœur du code)
+**Rôle** : (cœur du code)
 **Étape couverte par ce document** : analyse du PSO fourni + premier prototype DE fonctionnel en **CPU séquentiel**, avant tout portage CUDA.
 
 ---
