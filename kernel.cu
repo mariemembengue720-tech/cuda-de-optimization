@@ -1,215 +1,142 @@
-#include <cuda_runtime.h>
-#include <cuda.h>
-#include <math_functions.h>
-
 #include "kernel.h"
+#include <cuda_runtime.h>
+#include <curand_kernel.h>
+#include <cfloat>
+#include <iostream>
 
+__device__ float device_fitness_function(const float* x, int dim) {
+    float res = 0.0f;
 
-__device__ float tempParticle1[NUM_OF_DIMENSIONS];
-__device__ float tempParticle2[NUM_OF_DIMENSIONS];
-
-/* Objective function
-0: Levy 3-dimensional
-1: Shifted Rastigrin's Function
-2: Shifted Rosenbrock's Function
-3: Shifted Griewank's Function
-4: Shifted Sphere's Function
-*/
-/**
- * Runs on the GPU, called from the GPU.
-*/
-__device__ float fitness_function(float x[]) {
-    float res = 0;
-    float somme = 0;
-    float produit = 0;
-
-    switch (SELECTED_OBJ_FUNC)  {
-        case 0: 
-            float y1 = 1 + (x[0] - 1)/4;
-            float yn = 1 + (x[NUM_OF_DIMENSIONS-1] - 1)/4;
-
-            res += pow(sin(phi*y1), 2);
-
-            for (int i = 0; i < NUM_OF_DIMENSIONS-1; i++) {
-                float y = 1 + (x[i] - 1)/4;
-                float yp = 1 + (x[i+1] - 1)/4;
-                res += pow(y - 1, 2)*(1 + 10*pow(sin(phi*yp), 2)) + pow(yn - 1, 2);
-            }
-            break;
-        case 1: 
-            for (int i = 0; i < NUM_OF_DIMENSIONS; i++) {
-                float zi = x[i] - 0;
-                res += pow(zi, 2) - 10*cos(2*phi*zi) + 10;
-            }
-            res -= 330;
-            break;
-        
-        case 2:
-            for (int i = 0; i < NUM_OF_DIMENSIONS-1; i++) {
-                float zi = x[i] - 0 + 1;
-                float zip1 = x[i+1] - 0 + 1;
-                res += 100 * ( pow(pow(zi, 2) - zip1, 2)) + pow(zi - 1, 2);
-            }
-            res += 390;
-            break;
-        case 3:
-            for (int i = 0; i < NUM_OF_DIMENSIONS; i++) {
-                float zi = x[i] - 0;
-                somme += pow(zi, 2)/4000;
-                produit *= cos(zi/pow(i+1, 0.5));
-            }
-            res = somme - produit + 1 - 180; 
-            break;
-        case 4:
-            for(int i = 0; i < NUM_OF_DIMENSIONS; i++) {
-                float zi = x[i] - 0;
-                res += pow(zi, 2);
-            }
-            res -= 450;
-            break;
+#if defined(USE_RASTRIGIN)
+    for (int i = 0; i < dim; i++) {
+        float zi = x[i];
+        res += zi * zi - 10.0f * cosf(2.0f * M_PI * zi) + 10.0f;
     }
+#elif defined(USE_ROSENBROCK)
+    for (int i = 0; i < dim - 1; i++) {
+        float zi = x[i];
+        float zip1 = x[i + 1];
+        res += 100.0f * powf(zi * zi - zip1, 2.0f) + powf(zi - 1.0f, 2.0f);
+    }
+#elif defined(USE_SPHERE)
+    for (int i = 0; i < dim; i++) {
+        res += x[i] * x[i];
+    }
+#elif defined(USE_GRIEWANK)
+    float somme = 0.0f;
+    float produit = 1.0f;
+    for (int i = 0; i < dim; i++) {
+        somme += (x[i] * x[i]) / 4000.0f;
+        produit *= cosf(x[i] / sqrtf(i + 1));
+    }
+    res = somme - produit + 1.0f;
+#elif defined(USE_LEVY)
+    float w1 = 1.0f + (x[0] - 1.0f) / 4.0f;
+    float wn = 1.0f + (x[dim - 1] - 1.0f) / 4.0f;
+    res = powf(sinf(M_PI * w1), 2.0f);
+    for (int i = 0; i < dim - 1; i++) {
+        float wi = 1.0f + (x[i] - 1.0f) / 4.0f;
+        res += powf(wi - 1.0f, 2.0f) * (1.0f + 10.0f * powf(sinf(M_PI * wi + 1.0f), 2.0f));
+    }
+    res += powf(wn - 1.0f, 2.0f) * (1.0f + powf(sinf(2.0f * M_PI * wn), 2.0f));
+#endif
 
     return res;
 }
 
-/**
- * 
- * Runs on the GPU, called from the CPU or the GPU
-*/
-__global__ void kernelUpdateParticle(float *positions, float *velocities, 
-                                     float *pBests, float *gBest, float r1, 
-                                     float r2)
-{
-
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-
-    // avoid an out of bound for the array 
-    if(i >= NUM_OF_PARTICLES * NUM_OF_DIMENSIONS)
-        return;
-
-    //float rp = getRandomClamped();
-    //float rg = getRandomClamped();
-    
-    float rp = r1; // random weight for personnal =>  computed from @getRandomClamped
-    float rg = r2; // random weight for global =>  computed from @getRandomClamped
-
-
-    // Mise à jour de velocities et positions
-    velocities[i] = OMEGA * velocities[i] + 
-                    c1 * rp * (pBests[i] - positions[i]) + 
-                    c2 * rg * (gBest[i % NUM_OF_DIMENSIONS] - positions[i]);
-
-    // Update posisi particle
-    //Mise à jour de la position de la particule courante
-    //incrémentant la position de la particule courante avec la vitesse de la particule courante
-    positions[i] += velocities[i];
-}
-
-/**
- * Runs on the GPU, called from the CPU or the GPU
-*/
-__global__ void kernelUpdatePBest(float *positions, float *pBests, float* gBest)
-{
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    
-    if(i >= NUM_OF_PARTICLES * NUM_OF_DIMENSIONS || i % NUM_OF_DIMENSIONS != 0)
-        return;
-
-    for (int j = 0; j < NUM_OF_DIMENSIONS; j++)
-    {
-        tempParticle1[j] = positions[i + j];
-        tempParticle2[j] = pBests[i + j];
-    }
-
-    if (fitness_function(tempParticle1) < fitness_function(tempParticle2))
-    {
-        for (int k = 0; k < NUM_OF_DIMENSIONS; k++)
-            pBests[i + k] = positions[i + k];
+__global__ void setup_kernel(curandState *state, unsigned long seed, int pop_size) {
+    int id = threadIdx.x + blockIdx.x * blockDim.x;
+    if (id < pop_size) {
+        curand_init(seed, id, 0, &state[id]);
     }
 }
 
-
-extern "C" void cuda_pso(float *positions, float *velocities, float *pBests, float *gBest)
-{
-
-    int size = NUM_OF_PARTICLES * NUM_OF_DIMENSIONS;
+__global__ void kernel_de_step(float* d_population, float* d_next_pop, float* d_fitness, 
+                               curandState* state, int pop_size, int dim) {
     
-    // declare all the arrays on the device
-    float *devPos;
-    float *devVel;
-    float *devPBest;
-    float *devGBest;
-    
-    float temp[NUM_OF_DIMENSIONS];
-        
-    // Memory allocation
-    cudaMalloc((void**)&devPos, sizeof(float) * size);
-    cudaMalloc((void**)&devVel, sizeof(float) * size);
-    cudaMalloc((void**)&devPBest, sizeof(float) * size);
-    cudaMalloc((void**)&devGBest, sizeof(float) * NUM_OF_DIMENSIONS);
-    
-    // Thread & Block number
-    int threadsNum = 32;
-    int blocksNum = ceil(size / threadsNum);
-    
-    // Copy particle datas from host to device
-    /**
-     * Copy in GPU memory the data from the host 
-     * */
-    cudaMemcpy(devPos, positions, sizeof(float) * size, cudaMemcpyHostToDevice);
-    cudaMemcpy(devVel, velocities, sizeof(float) * size, 
-               cudaMemcpyHostToDevice);
-    cudaMemcpy(devPBest, pBests, sizeof(float) * size, cudaMemcpyHostToDevice);
-    cudaMemcpy(devGBest, gBest, sizeof(float) * NUM_OF_DIMENSIONS, 
-               cudaMemcpyHostToDevice);
-    
-    // PSO main function
-    // MAX_ITER = 30000;
+    int id = threadIdx.x + blockIdx.x * blockDim.x;
+    if (id >= pop_size) return;
 
-    for (int iter = 0; iter < MAX_ITER; iter++)
-    {     
+    curandState localState = state[id];
 
-        kernelUpdateParticle<<<blocksNum, threadsNum>>>(devPos, devVel, 
-                                                        devPBest, devGBest, 
-                                                        getRandomClamped(), 
-                                                        getRandomClamped());  
+    int a, b, c;
+    do { a = curand(&localState) % pop_size; } while (a == id);
+    do { b = curand(&localState) % pop_size; } while (b == id || b == a);
+    do { c = curand(&localState) % pop_size; } while (c == id || c == a || c == b);
 
-        kernelUpdatePBest<<<blocksNum, threadsNum>>>(devPos, devPBest, 
-                                                     devGBest);
-        
-        cudaMemcpy(pBests, devPBest, 
-                   sizeof(float) * NUM_OF_PARTICLES * NUM_OF_DIMENSIONS, 
-                   cudaMemcpyDeviceToHost);
-        
-        
-        for(int i = 0; i < size; i += NUM_OF_DIMENSIONS)
-        {
-            for(int k = 0; k < NUM_OF_DIMENSIONS; k++) //ssB1 
-                temp[k] = pBests[i + k];
-        
-            if (host_fitness_function(temp) < host_fitness_function(gBest))
-            {
-                for (int k = 0; k < NUM_OF_DIMENSIONS; k++)
-                    gBest[k] = temp[k];
-            }   
+    int j_rand = curand(&localState) % dim;
+    float trial[128];
+
+    for (int d = 0; d < dim; d++) {
+        float rand_val = curand_uniform(&localState);
+        if (rand_val < DE_CR || d == j_rand) {
+            trial[d] = d_population[a * dim + d] + DE_F * (d_population[b * dim + d] - d_population[c * dim + d]);
+        } else {
+            trial[d] = d_population[id * dim + d];
         }
-        
-        cudaMemcpy(devGBest, gBest, sizeof(float) * NUM_OF_DIMENSIONS, 
-                   cudaMemcpyHostToDevice);
     }
-    
-    cudaMemcpy(positions, devPos, sizeof(float) * size, cudaMemcpyDeviceToHost);
-    cudaMemcpy(velocities, devVel, sizeof(float) * size, 
-               cudaMemcpyDeviceToHost);
-    cudaMemcpy(pBests, devPBest, sizeof(float) * size, cudaMemcpyDeviceToHost);
-    cudaMemcpy(gBest, devGBest, sizeof(float) * NUM_OF_DIMENSIONS, 
-               cudaMemcpyDeviceToHost); 
-    
-    
-    // cleanup
-    cudaFree(devPos);
-    cudaFree(devVel);
-    cudaFree(devPBest);
-    cudaFree(devGBest);
+
+    state[id] = localState;
+
+    float f_trial = device_fitness_function(trial, dim);
+
+    if (f_trial <= d_fitness[id]) {
+        d_fitness[id] = f_trial;
+        for (int d = 0; d < dim; d++) {
+            d_next_pop[id * dim + d] = trial[d];
+        }
+    } else {
+        for (int d = 0; d < dim; d++) {
+            d_next_pop[id * dim + d] = d_population[id * dim + d];
+        }
+    }
 }
 
+extern "C" float cuda_de(float* h_population, int pop_size, int dim, int max_iter) {
+    
+    size_t pop_bytes = pop_size * dim * sizeof(float);
+    size_t fit_bytes = pop_size * sizeof(float);
+
+    float *d_population, *d_next_pop, *d_fitness;
+    curandState *d_state;
+
+    cudaMalloc(&d_population, pop_bytes);
+    cudaMalloc(&d_next_pop, pop_bytes);
+    cudaMalloc(&d_fitness, fit_bytes);
+    cudaMalloc(&d_state, pop_size * sizeof(curandState));
+
+    cudaMemcpy(d_population, h_population, pop_bytes, cudaMemcpyHostToDevice);
+
+    float* h_fitness = new float[pop_size];
+    for (int i = 0; i < pop_size; i++) {
+        h_fitness[i] = FLT_MAX;
+    }
+    cudaMemcpy(d_fitness, h_fitness, fit_bytes, cudaMemcpyHostToDevice);
+
+    int threadsPerBlock = 64;
+    int blocksPerGrid = (pop_size + threadsPerBlock - 1) / threadsPerBlock;
+
+    setup_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_state, 1234, pop_size);
+
+    for (int iter = 0; iter < max_iter; iter++) {
+        kernel_de_step<<<blocksPerGrid, threadsPerBlock>>>(d_population, d_next_pop, d_fitness, d_state, pop_size, dim);
+        cudaMemcpy(d_population, d_next_pop, pop_bytes, cudaMemcpyDeviceToDevice);
+    }
+
+    cudaMemcpy(h_fitness, d_fitness, fit_bytes, cudaMemcpyDeviceToHost);
+
+    float best_fitness = FLT_MAX;
+    for (int i = 0; i < pop_size; i++) {
+        if (h_fitness[i] < best_fitness) {
+            best_fitness = h_fitness[i];
+        }
+    }
+
+    cudaFree(d_population);
+    cudaFree(d_next_pop);
+    cudaFree(d_fitness);
+    cudaFree(d_state);
+    delete[] h_fitness;
+
+    return best_fitness;
+}

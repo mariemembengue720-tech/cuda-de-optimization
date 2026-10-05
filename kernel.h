@@ -1,35 +1,33 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <math.h>
+#pragma once
+
 #include <iostream>
-#include <string>
+#include <vector>
+#include <cmath>
+#include <cfloat>
 
+// Hyperparamètres DE
+#define DE_F  0.5f
+#define DE_CR 0.8f
 
-// Constantes
-/* Objective function
-0: Levy 3-dimensional
-1: Shifted Rastigrin's Function
-2: Shifted Rosenbrock's Function
-3: Shifted Griewank's Function
-4: Shifted Sphere's Function
-*/
-const int SELECTED_OBJ_FUNC = 0;
-const int NUM_OF_PARTICLES = 512;
-const int NUM_OF_DIMENSIONS = 3;
-const int MAX_ITER = NUM_OF_DIMENSIONS * pow(10, 4);
-const float START_RANGE_MIN = -5.12f;
-const float START_RANGE_MAX = 5.12f;
-const float OMEGA = 0.5;
-const float c1 = 1.5;
-const float c2 = 1.5;
-const float phi = 3.1415;
+// Bornes de l'espace de recherche
+#define LOWER_BOUND -5.12f
+#define UPPER_BOUND  5.12f
 
-// Les 3 fonctions très utiles
-float getRandom(float low, float high);
-float getRandomClamped();
-float host_fitness_function(float x[]);
+// Choix de la fonction objectif (Décommenter UNE seule fonction)
+#define USE_RASTRIGIN
+//#define USE_ROSENBROCK
+//#define USE_SPHERE
+//#define USE_GRIEWANK
+//#define USE_LEVY
 
-// Fonction externe qui va tourner sur le GPU
-extern "C" void cuda_pso(float *positions, float *velocities, float *pBests, float *gBest);
+// Utilitaires CPU
+float getRandom();
+float getRandomClamped(float min, float max);
+float host_fitness_function(const float* x, int dim);
 
+// Moteur CPU
+float cpu_de(float* population, float* next_pop, float* fitness, 
+             int pop_size, int dim, int max_iter);
+
+// Moteur GPU (CUDA)
+extern "C" float cuda_de(float* h_population, int pop_size, int dim, int max_iter);

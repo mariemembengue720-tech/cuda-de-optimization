@@ -1,74 +1,105 @@
 #include "kernel.h"
+#include <cstdlib>
+#include <cmath>
+#include <algorithm>
 
-/* Objective function
-0: Levy 3-dimensional
-1: Shifted Rastigrin's Function
-2: Shifted Rosenbrock's Function
-3: Shifted Griewank's Function
-4: Shifted Sphere's Function
-*/
-// parametre 1 individu avec ses positions
-float host_fitness_function(float x[]) {
-    float res = 0;
-    float somme = 0;
-    float produit = 0;
+float getRandom() {
+    return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+}
 
-    switch (SELECTED_OBJ_FUNC)  {
-        case 0: {
-            float y1 = 1 + (x[0] - 1)/4;
-            float yn = 1 + (x[NUM_OF_DIMENSIONS-1] - 1)/4;
+float getRandomClamped(float min, float max) {
+    return min + getRandom() * (max - min);
+}
 
-            res += pow(sin(phi*y1), 2);
+float host_fitness_function(const float* x, int dim) {
+    float res = 0.0f;
 
-            for (int i = 0; i < NUM_OF_DIMENSIONS-1; i++) {
-                float y = 1 + (x[i] - 1)/4;
-                float yp = 1 + (x[i+1] - 1)/4;
-                res += pow(y - 1, 2)*(1 + 10*pow(sin(phi*yp), 2)) + pow(yn - 1, 2);
-            }
-            break;
-        }
-        case 1: {
-            for (int i = 0; i < NUM_OF_DIMENSIONS; i++) {
-                float zi = x[i] - 0;
-                res += pow(zi, 2) - 10*cos(2*phi*zi) + 10;
-            }
-            res -= 330;
-            break;
-        }
-        case 2:
-            for (int i = 0; i < NUM_OF_DIMENSIONS-1; i++) {
-                float zi = x[i] - 0 + 1;
-                float zip1 = x[i+1] - 0 + 1;
-                res += 100 * ( pow(pow(zi, 2) - zip1, 2)) + pow(zi - 1, 2);
-            }
-            res += 390;
-            break;
-        case 3:
-            for (int i = 0; i < NUM_OF_DIMENSIONS; i++) {
-                float zi = x[i] - 0;
-                somme += pow(zi, 2)/4000;
-                produit *= cos(zi/pow(i+1, 0.5));
-            }
-            res = somme - produit + 1 - 180; 
-            break;
-        case 4:
-            for(int i = 0; i < NUM_OF_DIMENSIONS; i++) {
-                float zi = x[i] - 0;
-                res += pow(zi, 2);
-            }
-            res -= 450;
-            break;
+#if defined(USE_RASTRIGIN)
+    for (int i = 0; i < dim; i++) {
+        float zi = x[i];
+        res += zi * zi - 10.0f * cosf(2.0f * M_PI * zi) + 10.0f;
     }
+#elif defined(USE_ROSENBROCK)
+    for (int i = 0; i < dim - 1; i++) {
+        float zi = x[i];
+        float zip1 = x[i + 1];
+        res += 100.0f * powf(zi * zi - zip1, 2.0f) + powf(zi - 1.0f, 2.0f);
+    }
+#elif defined(USE_SPHERE)
+    for (int i = 0; i < dim; i++) {
+        res += x[i] * x[i];
+    }
+#elif defined(USE_GRIEWANK)
+    float somme = 0.0f;
+    float produit = 1.0f;
+    for (int i = 0; i < dim; i++) {
+        somme += (x[i] * x[i]) / 4000.0f;
+        produit *= cosf(x[i] / sqrtf(i + 1));
+    }
+    res = somme - produit + 1.0f;
+#elif defined(USE_LEVY)
+    float w1 = 1.0f + (x[0] - 1.0f) / 4.0f;
+    float wn = 1.0f + (x[dim - 1] - 1.0f) / 4.0f;
+    res = powf(sinf(M_PI * w1), 2.0f);
+    for (int i = 0; i < dim - 1; i++) {
+        float wi = 1.0f + (x[i] - 1.0f) / 4.0f;
+        res += powf(wi - 1.0f, 2.0f) * (1.0f + 10.0f * powf(sinf(M_PI * wi + 1.0f), 2.0f));
+    }
+    res += powf(wn - 1.0f, 2.0f) * (1.0f + powf(sinf(2.0f * M_PI * wn), 2.0f));
+#endif
 
     return res;
 }
 
-// Obtenir un random entre low et high
-float getRandom(float low, float high) {
-    return low + float(((high - low) + 1)*rand()/(RAND_MAX + 1.0));
-}
-// Obtenir un random entre 0.0f and 1.0f inclusif
-float getRandomClamped() {
-    return (float) rand()/(float) RAND_MAX;
-}
+float cpu_de(float* population, float* next_pop, float* fitness, 
+             int pop_size, int dim, int max_iter) {
+    
+    for (int i = 0; i < pop_size; i++) {
+        fitness[i] = host_fitness_function(&population[i * dim], dim);
+    }
 
+    float best_fitness = FLT_MAX;
+    
+    for (int iter = 0; iter < max_iter; iter++) {
+        for (int i = 0; i < pop_size; i++) {
+            int a, b, c;
+            do { a = rand() % pop_size; } while (a == i);
+            do { b = rand() % pop_size; } while (b == i || b == a);
+            do { c = rand() % pop_size; } while (c == i || c == a || c == b);
+
+            int j_rand = rand() % dim;
+            float trial[128];
+
+            for (int d = 0; d < dim; d++) {
+                if (getRandom() < DE_CR || d == j_rand) {
+                    trial[d] = population[a * dim + d] + DE_F * (population[b * dim + d] - population[c * dim + d]);
+                } else {
+                    trial[d] = population[i * dim + d];
+                }
+            }
+
+            float f_trial = host_fitness_function(trial, dim);
+
+            if (f_trial <= fitness[i]) {
+                fitness[i] = f_trial;
+                for (int d = 0; d < dim; d++) {
+                    next_pop[i * dim + d] = trial[d];
+                }
+            } else {
+                for (int d = 0; d < dim; d++) {
+                    next_pop[i * dim + d] = population[i * dim + d];
+                }
+            }
+
+            if (fitness[i] < best_fitness) {
+                best_fitness = fitness[i];
+            }
+        }
+
+        for (int k = 0; k < pop_size * dim; k++) {
+            population[k] = next_pop[k];
+        }
+    }
+
+    return best_fitness;
+}
