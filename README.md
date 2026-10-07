@@ -6,11 +6,11 @@ This project is inspired by the research work of *Qin et al. (GECCO 2012)* (*"An
 
 ---
 
-## 📌 Project Overview
+##  Project Overview
 
 Differential Evolution is a population-based metaheuristic for global continuous optimization. While effective, large-scale problems ($D \ge 100$) require significant computational power. This project evaluates how modern GPU architectures (NVIDIA CUDA) can accelerate DE through memory fusion, shared memory usage, and overlapping kernel execution via CUDA streams.
 
-### 🛠️ Implemented Modes
+###  Implemented Modes
 
 1. **`cpu`**: Sequential C++ implementation (`run_de_sequential`) serving as the baseline.
 2. **`gpu`**: Basic CUDA implementation (`cuda_de`) using separate kernels for each DE operator (Mutation, Crossover, Evaluation, Selection).
@@ -22,7 +22,7 @@ Differential Evolution is a population-based metaheuristic for global continuous
 
 ---
 
-## 📁 Repository Structure
+##  Repository Structure
 
 ```text
 .
@@ -37,7 +37,7 @@ Differential Evolution is a population-based metaheuristic for global continuous
 
 ---
 
-## 🎯 Benchmark Functions
+##  Benchmark Functions
 
 The evaluations follow the **CEC 2005** standard benchmark criteria ($10^4 \times D$ Max Function Evaluations):
 
@@ -52,7 +52,7 @@ The evaluations follow the **CEC 2005** standard benchmark criteria ($10^4 \time
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -60,7 +60,7 @@ The evaluations follow the **CEC 2005** standard benchmark criteria ($10^4 \time
 - **GCC / G++ Compiler**
 - **Python 3.x** with `pandas` and `numpy` (for automated benchmarks)
 
-### 🛠️ Compilation
+###  Compilation
 
 Compile the C++/CUDA code using `nvcc`:
 
@@ -70,7 +70,7 @@ nvcc -O3 main_all_de.cpp kernel.cpp kernel.cu -o de_app
 
 ---
 
-## 💻 Usage
+##  Usage
 
 ### Direct CLI Execution
 
@@ -98,7 +98,7 @@ This generates `benchmark_de_results.csv` and `benchmark_de_results.tex` (LaTeX 
 
 ---
 
-## 📊 Performance Summary
+##  Performance Summary
 
 Experimental speedups calculated against the sequential CPU version across $10$ independent runs:
 
@@ -114,6 +114,6 @@ Experimental speedups calculated against the sequential CPU version across $10$ 
 
 ---
 
-## 📚 References
+##  References
 
 - **Qin, A. K., Raimondo, F., Forbes, F., & Ong, Y. S. (2012)**. *An Improved CUDA-Based Implementation of Differential Evolution on GPU*. In Proceedings of the 14th annual conference on Genetic and evolutionary computation (GECCO '12), pp. 993–1000.
